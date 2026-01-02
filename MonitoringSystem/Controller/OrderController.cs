@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MonitoringSystem.Model;
+using MonitoringSystem.Service;
+using MonitoringSystem.Utility;
 
 namespace MonitoringSystem.Controller
 {
@@ -8,24 +10,54 @@ namespace MonitoringSystem.Controller
     public class OrderController : ControllerBase
     {
         private readonly ILogger<OrderController> _logger;
+        private readonly IOrderService _orderService;
 
-        public OrderController(ILogger<OrderController> logger)
+        public OrderController(ILogger<OrderController> logger, IOrderService orderService)
         {
             _logger = logger;
+            _orderService = orderService;
         }
 
         [HttpPost]
-        public IActionResult CreateOrder()
+        public async Task<IActionResult> CreateOrder()
         {
             var order = new Order();
-            _logger.LogInformation("Order {OrderId} created", order.Id);
 
-            // TODO:
-            // 1. Persist order
-            // 2. Enqueue background job
-            // 3. Call payment service
+            try
+            {
+                await _orderService.CreateAsync(order);
+                _logger.LogInformation("Order {OrderId} created", order.Id);
+            }
+            catch (OrderPersistenceException)
+            {
+                return StatusCode(500, "Order service is temporarily unavailable");
+            }
 
             return Accepted(new { order.Id });
+        }
+
+        [HttpGet("{id:guid}")]
+        public async Task<ActionResult<Order>> GetOrderById(Guid id)
+        {
+            Order? order;
+            try
+            {
+                order = await _orderService.GetOrderByIdAsync(id);
+
+                if (order == null)
+                {
+                    _logger.LogWarning("Order {OrderId} not found", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Order {OrderId} retrieved", id);
+            }
+            catch (OrderPersistenceException)
+            {
+                return StatusCode(500, "Order service is temporarily unavailable");
+            }
+
+            return Ok(order);
         }
     }
 }
