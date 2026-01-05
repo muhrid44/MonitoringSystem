@@ -53,7 +53,17 @@ try
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
     {
-        //app.MapOpenApi();
+        var seedCounts = builder.Configuration.GetRequiredSection("SeedSample")!.Value;
+
+        using var scope = app.Services.CreateScope();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                                         .CreateLogger("Seeder");
+
+        await DevelopmentSeedingDataDummy.SeedAsync(
+            app.Services,
+            logger,
+            int.Parse(seedCounts!)
+            );
     }
 
     app.UseSerilogRequestLogging(opts =>

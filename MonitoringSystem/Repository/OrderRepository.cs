@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using MonitoringSystem.Controller;
 using MonitoringSystem.Model;
 using MonitoringSystem.Utility;
+using Npgsql;
 
 namespace MonitoringSystem.Repository
 {
@@ -21,14 +22,19 @@ namespace MonitoringSystem.Repository
         public async Task CreateAsync(Order order)
         {
             const string sqlQuery = """
-            INSERT INTO Orders (Id, CreatedAt, Status)
-            VALUES (@Id, @CreatedAt, @Status);
+        INSERT INTO orders (id, created_at, status)
+           VALUES (@Id, @CreatedAt, @Status);
         """;
 
             try
             {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.ExecuteAsync(sqlQuery, order);
+                using var connection = new NpgsqlConnection(_connectionString);
+                await connection.ExecuteAsync(sqlQuery, new
+                {
+                    Id = order.Id,
+                    CreatedAt = DateTime.Now,
+                    Status = order.Status
+                });
             }
             catch (Exception ex)
             {
@@ -37,17 +43,38 @@ namespace MonitoringSystem.Repository
             }
         }
 
-        public async Task<Order?> GetOrderByIdAsync(Guid id)
+        public async Task DeleteAllAsync()
         {
             const string sqlQuery = """
-            SELECT Id, CreatedAt, Status
-            FROM Orders
-            WHERE Id = @Id;
+        DELETE FROM orders
         """;
 
             try
             {
-                using var connection = new SqliteConnection(_connectionString);
+                using var connection = new NpgsqlConnection(_connectionString);
+                await connection.ExecuteAsync(sqlQuery);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete order");
+                throw new OrderPersistenceException("Database failure", ex);
+            }
+        }
+
+        public async Task<Order?> GetOrderByIdAsync(Guid id)
+        {
+            const string sqlQuery = """
+        SELECT
+              id AS Id,
+              created_at AS CreatedAt,
+              status AS Status
+          FROM orders
+          WHERE id = @Id;
+        """;
+
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
                 return await connection.QuerySingleOrDefaultAsync<Order>(
                     sqlQuery, new { Id = id });
             }
@@ -55,6 +82,73 @@ namespace MonitoringSystem.Repository
             {
                 _logger.LogWarning(ex, "Failed to retrieve order with Id {OrderId}", id);
                 throw new OrderPersistenceException("Database failure", ex);
+            }
+        }
+
+        public async Task<IReadOnlyList<Order>> GetPendingAsync()
+        {
+            const string sqlQuery = """
+        SELECT
+            id AS Id,
+            created_at AS CreatedAt,
+            status AS Status,
+            retry_count AS RetryCount
+        FROM orders
+        WHERE status = @Created
+          AND retry_count < @MaxRetry;
+        
+        """;
+
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
+                return await connection.QueryFirstAsync<IReadOnlyList<Order>>(sqlQuery);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve orders");
+                throw new OrderPersistenceException("Database failure", ex);
+            }
+        }
+
+        public async Task UpdateStatusOrder(Order order)
+        {
+            const string sql = """
+                    UPDATE orders
+                          SET
+                              status = @Status,
+                              retry_count = @RetryCount
+                          WHERE id = @Id;
+                    """;
+
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
+
+                var affected = await connection.ExecuteAsync(sql, new
+                {
+                    Id = order.Id,
+                    Status = (int)order.Status,
+                    RetryCount = order.RetryCount
+                });
+
+                if (affected == 0)
+                {
+                    _logger.LogWarning(
+                        "Order {OrderId} not updated (not found)",
+                        order.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to update order {OrderId}",
+                    order.Id);
+
+                throw new OrderPersistenceException(
+                    "Failed to update order",
+                    ex);
             }
         }
     }

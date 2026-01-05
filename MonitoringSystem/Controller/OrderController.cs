@@ -22,6 +22,7 @@ namespace MonitoringSystem.Controller
         public async Task<IActionResult> CreateOrder()
         {
             var order = new Order();
+            order.Id = Guid.NewGuid();
 
             try
             {

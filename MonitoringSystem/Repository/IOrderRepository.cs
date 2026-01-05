@@ -6,5 +6,8 @@ namespace MonitoringSystem.Repository
     {
         Task CreateAsync(Order order);
         Task<Order?> GetOrderByIdAsync(Guid id);
+        Task<IReadOnlyList<Order>> GetPendingAsync();
+        Task UpdateStatusOrder(Order order);
+        Task DeleteAllAsync();
     }
 }

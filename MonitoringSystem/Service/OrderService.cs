@@ -3,6 +3,7 @@ using MonitoringSystem.Repository;
 
 namespace MonitoringSystem.Service
 {
+    //nothing much doing here yet
     public class OrderService : IOrderService
     {
         private readonly IOrderRepository _orderRepository;
@@ -12,16 +13,24 @@ namespace MonitoringSystem.Service
             _orderRepository = orderRepository;
         }
 
-        //nothing much doing here yet
         public async Task CreateAsync(Order order)
         {
             await _orderRepository.CreateAsync(order);
         }
 
-        //nothing much doing here yet
         public async Task<Order?> GetOrderByIdAsync(Guid id)
         {
             return await _orderRepository.GetOrderByIdAsync(id);
+        }
+
+        public async Task<IReadOnlyList<Order>> GetPendingAsync()
+        {
+            return await _orderRepository.GetPendingAsync();
+        }
+
+        public async Task UpdateStatusOrder(Order order)
+        {
+            await _orderRepository.UpdateStatusOrder(order);
         }
     }
 }
