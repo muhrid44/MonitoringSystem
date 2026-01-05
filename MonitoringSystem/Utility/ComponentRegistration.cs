@@ -11,6 +11,7 @@ namespace MonitoringSystem.Utility
             services.AddScoped<IOrderService, OrderService>();
             // Register repositories
             services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<IOrderMetricsRepository, OrderMetricsRepository>();
         }
     }
 }

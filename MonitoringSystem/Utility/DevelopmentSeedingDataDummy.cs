@@ -20,7 +20,9 @@ namespace MonitoringSystem.Utility
 
             for (int i = 0; i < count; i++)
             {
-                await repo.CreateAsync(new Order());
+                var newOrder = new Order();
+                newOrder.Id = Guid.NewGuid();
+                await repo.CreateAsync(newOrder);
             }
 
             logger.LogInformation("Seeding completed");

@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="MonitoringSystem/MonitoringSystem.csproj" />
+  <Project Path="MonitoringSystemShared/MonitoringSystemShared.shproj" Id="42e63673-13b0-4c67-a66f-3864410d599f" />
   <Project Path="OrderWorker/OrderWorker.csproj" Id="30a99077-e7d7-4111-b937-ae11130f0bbd" />
 </Solution>
