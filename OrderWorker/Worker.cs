@@ -1,22 +1,19 @@
-using MonitoringSystem.Controller;
 using MonitoringSystem.Model;
-using MonitoringSystem.Service;
-using MonitoringSystem.Utility;
+using OrderWorker.Api;
+using OrderWorker.Utility;
 using System.Diagnostics;
 
 namespace OrderWorker
 {
     public class Worker : BackgroundService
     {
-        private readonly IOrderService _orderService;
         private readonly ILogger<Worker> _logger;
-        private readonly OrderProcessingOptions _options;
+        private readonly IOrderApi _orderApi;
 
-        public Worker(IOrderService orderService, ILogger<Worker> logger, OrderProcessingOptions options)
+        public Worker(ILogger<Worker> logger, IOrderApi orderApi)
         {
-            _orderService = orderService;
             _logger = logger;
-            _options = options;
+            _orderApi = orderApi;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,67 +32,15 @@ namespace OrderWorker
         private async Task ProcessPendingOrders(CancellationToken token)
         {
             using var activity =
-                TracingSystemTelemetry.ActivitySource
+                TracingWorkerTelemetry.ActivitySource
                     .StartActivity("OrderWorker.FetchPendingOrders", ActivityKind.Internal);
 
-            var orders = await _orderService.GetPendingAsync();
+            var ids = await _orderApi.GetPendingOrdersAsync();
 
-            foreach (var order in orders)
+            foreach (var id in ids)
             {
-                await ProcessOrder(order, token);
+                await _orderApi.UpdateOrderStatus(id, token);
             }
         }
-
-        private async Task ProcessOrder(Order order, CancellationToken token)
-        {
-            using var activity =
-                TracingSystemTelemetry.ActivitySource
-                    .StartActivity("OrderWorker.ProcessOrder", ActivityKind.Internal);
-
-            activity?.SetTag("order.id", order.Id);
-            activity?.SetTag("order.status", order.Status);
-
-            if (ShouldFail())
-            {
-                order.IncrementRetry();
-
-                if (order.RetryCount >= _options.MaxRetryCount)
-                {
-                    order.MarkFailed(_options.MaxRetryCount);
-                    activity?.SetTag("order.result", "failed_terminal");
-                }
-                else
-                {
-                    order.MarkCreated(); // retry
-                    activity?.SetTag("order.result", "retry");
-                }
-
-                await _orderService.UpdateStatusOrder(order);
-
-                _logger.LogWarning(
-                    "Order {OrderId} failed (retry {Retry}/{MaxRetryCount})",
-                    order.Id,
-                    order.RetryCount,
-                    _options.MaxRetryCount);
-
-                return;
-            }
-
-
-            order.MarkProcessing();
-            await _orderService.UpdateStatusOrder(order);
-
-            await Task.Delay(TimeSpan.FromSeconds(2), token);
-
-            order.MarkCompleted();
-            await _orderService.UpdateStatusOrder(order);
-        }
-
-        private bool ShouldFail()
-        {
-            return Random.Shared.NextDouble() < _options.FailureRate;
-        }
-
-
     }
 }

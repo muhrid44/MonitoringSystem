@@ -63,5 +63,35 @@ namespace MonitoringSystem.Controller
             return Ok(order);
         }
 
+        [HttpGet("get-pending-order-ids")]
+        public async Task<IActionResult> GetPendingOrderIds()
+        {
+            try
+            {
+                await _orderService.GetPendingOrderIdsAsync();
+            }
+            catch (OrderPersistenceException)
+            {
+                return StatusCode(500, "Order service is temporarily unavailable");
+            }
+
+            return Ok();
+        }
+
+        [HttpPost("{id}/process")]
+        public async Task<ActionResult<Order>> UpdateOrderStatus(Guid id)
+        {
+            try
+            {
+                await _orderService.UpdateStatusOrder(id);
+            }
+            catch (OrderPersistenceException)
+            {
+                return StatusCode(500, "Order service is temporarily unavailable");
+            }
+
+            return Ok();
+        }
+
     }
 }

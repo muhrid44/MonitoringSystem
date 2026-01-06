@@ -1,3 +1,4 @@
+using MonitoringSystem.Model;
 using MonitoringSystem.Repository;
 using MonitoringSystem.Utility;
 using OpenTelemetry.Resources;
@@ -27,6 +28,11 @@ try
     builder.Services.AddHealthChecks();
     builder.Services.AddControllers();
 
+    builder.Services.Configure<OrderProcessingOptions>(
+    builder.Configuration.GetSection("OrderProcessing"));
+
+    string jaegerUrl = builder.Configuration.GetValue<string>("JaegerUrl") ?? "http://localhost:4317";
+
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource
         .AddService(serviceName: "MonitoringSystem", serviceVersion: "1.0.0"))
@@ -37,7 +43,7 @@ try
                 .AddAspNetCoreInstrumentation()
                 .AddOtlpExporter(opt =>
                 {
-                    opt.Endpoint = new Uri("http://localhost:4317");
+                    opt.Endpoint = new Uri(jaegerUrl);
                 })
                 .AddAspNetCoreInstrumentation(opt =>
                 {

@@ -6,7 +6,7 @@ namespace MonitoringSystem.Service
     {
         Task CreateAsync(Order order);
         Task<Order?> GetOrderByIdAsync(Guid id);
-        Task<IReadOnlyList<Order>> GetPendingAsync();
-        Task UpdateStatusOrder(Order order);
+        Task UpdateStatusOrder(Guid id);
+        Task<IReadOnlyList<Guid>> GetPendingOrderIdsAsync();
     }
 }

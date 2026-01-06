@@ -61,7 +61,7 @@ namespace MonitoringSystem.Repository
             }
         }
 
-        public async Task<Order?> GetOrderByIdAsync(Guid id)
+        public async Task<Order?> GetOrderByIdAsync(Guid id, bool isPending = false)
         {
             const string sqlQuery = """
         SELECT
@@ -72,11 +72,25 @@ namespace MonitoringSystem.Repository
           WHERE id = @Id;
         """;
 
+            const string sqlQueryPending = """
+        SELECT
+            id AS Id,
+            created_at AS CreatedAt,
+            status AS Status,
+            retry_count AS RetryCount
+        FROM orders
+        WHERE id = @Id AND status = @Created
+          AND retry_count < @MaxRetry;
+        
+        """;
+
+            string queryUsed = (bool)isPending ? sqlQueryPending : sqlQuery;
+
             try
             {
                 using var connection = new NpgsqlConnection(_connectionString);
                 return await connection.QuerySingleOrDefaultAsync<Order>(
-                    sqlQuery, new { Id = id });
+                    queryUsed, new { Id = id });
             }
             catch (Exception ex)
             {
@@ -85,14 +99,11 @@ namespace MonitoringSystem.Repository
             }
         }
 
-        public async Task<IReadOnlyList<Order>> GetPendingAsync()
+        public async Task<IReadOnlyList<Guid>> GetPendingOrderIdsAsync()
         {
             const string sqlQuery = """
         SELECT
-            id AS Id,
-            created_at AS CreatedAt,
-            status AS Status,
-            retry_count AS RetryCount
+            id AS Id
         FROM orders
         WHERE status = @Created
           AND retry_count < @MaxRetry;
@@ -102,7 +113,7 @@ namespace MonitoringSystem.Repository
             try
             {
                 using var connection = new NpgsqlConnection(_connectionString);
-                return await connection.QueryFirstAsync<IReadOnlyList<Order>>(sqlQuery);
+                return await connection.QueryFirstAsync<IReadOnlyList<Guid>>(sqlQuery);
             }
             catch (Exception ex)
             {
